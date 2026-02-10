@@ -1,0 +1,591 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>个人理财看板</title>
+    <style>
+      :root {
+        --bg-a: #f7f4ec;
+        --bg-b: #eaf4ef;
+        --card: rgba(255, 255, 255, 0.9);
+        --line: rgba(20, 36, 45, 0.12);
+        --text: #14242d;
+        --sub: #60717c;
+        --green: #0f8f61;
+        --green-strong: #0a6f4b;
+        --red: #b74646;
+        --amber: #be7a22;
+        --shadow: 0 14px 36px rgba(20, 36, 45, 0.12);
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      body {
+        margin: 0;
+        min-height: 100vh;
+        font-family: "PingFang SC", "Hiragino Sans GB", "Noto Sans CJK SC", sans-serif;
+        color: var(--text);
+        background:
+          radial-gradient(circle at 8% 12%, rgba(190, 122, 34, 0.18), transparent 30%),
+          radial-gradient(circle at 84% 14%, rgba(15, 143, 97, 0.15), transparent 34%),
+          linear-gradient(130deg, var(--bg-a), var(--bg-b));
+        padding: 20px;
+      }
+
+      .app {
+        max-width: 1180px;
+        margin: 0 auto;
+        display: grid;
+        gap: 16px;
+      }
+
+      h1,
+      h2,
+      h3,
+      p {
+        margin: 0;
+      }
+
+      .hero {
+        display: grid;
+        gap: 6px;
+      }
+
+      .hero h1 {
+        font-family: "STKaiti", "KaiTi", serif;
+        font-size: clamp(30px, 4vw, 42px);
+      }
+
+      .hero p {
+        color: var(--sub);
+        font-size: 14px;
+      }
+
+      .card {
+        border: 1px solid var(--line);
+        border-radius: 18px;
+        background: var(--card);
+        box-shadow: var(--shadow);
+        padding: 16px;
+      }
+
+      .section-title {
+        margin-bottom: 12px;
+        font-size: 18px;
+      }
+
+      .entry-wrap {
+        display: grid;
+        gap: 12px;
+        grid-template-columns: 1fr 1fr;
+      }
+
+      .form-grid {
+        display: grid;
+        gap: 10px;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+      }
+
+      .field {
+        display: flex;
+        flex-direction: column;
+        gap: 6px;
+      }
+
+      .field.wide {
+        grid-column: span 2;
+      }
+
+      label {
+        font-size: 12px;
+        color: var(--sub);
+      }
+
+      input,
+      select,
+      button {
+        height: 40px;
+        border-radius: 10px;
+        font: inherit;
+      }
+
+      input,
+      select {
+        border: 1px solid var(--line);
+        padding: 0 10px;
+        background: rgba(255, 255, 255, 0.94);
+      }
+
+      button {
+        border: none;
+        cursor: pointer;
+        background: var(--green);
+        color: white;
+        font-weight: 700;
+      }
+
+      button:hover {
+        background: var(--green-strong);
+      }
+
+      .summary-grid {
+        display: grid;
+        gap: 10px;
+        grid-template-columns: repeat(4, minmax(0, 1fr));
+      }
+
+      .summary {
+        border: 1px solid var(--line);
+        border-radius: 12px;
+        padding: 12px;
+        background: rgba(255, 255, 255, 0.86);
+      }
+
+      .summary .k {
+        font-size: 12px;
+        color: var(--sub);
+      }
+
+      .summary .v {
+        margin-top: 8px;
+        font-size: 24px;
+        font-weight: 700;
+      }
+
+      .heat-head {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        gap: 8px;
+        flex-wrap: wrap;
+        margin-bottom: 10px;
+      }
+
+      .heat-grid {
+        display: grid;
+        gap: 8px;
+        grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+      }
+
+      .tile {
+        border-radius: 12px;
+        padding: 10px;
+        border: 1px solid rgba(20, 36, 45, 0.08);
+        min-height: 92px;
+        display: grid;
+        gap: 6px;
+      }
+
+      .tile .name {
+        font-weight: 700;
+      }
+
+      .tile .meta {
+        font-size: 12px;
+        color: #3a4a56;
+      }
+
+      .table-head {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        gap: 8px;
+        margin-bottom: 10px;
+      }
+
+      .ghost {
+        background: transparent;
+        color: var(--text);
+        border: 1px solid var(--line);
+      }
+
+      .ghost:hover {
+        background: rgba(255, 255, 255, 1);
+      }
+
+      .table-wrap {
+        overflow-x: auto;
+      }
+
+      table {
+        width: 100%;
+        min-width: 860px;
+        border-collapse: collapse;
+      }
+
+      th,
+      td {
+        text-align: left;
+        padding: 10px 8px;
+        border-bottom: 1px solid var(--line);
+        font-size: 13px;
+      }
+
+      th {
+        color: var(--sub);
+        font-weight: 600;
+      }
+
+      .tag {
+        display: inline-block;
+        padding: 3px 8px;
+        border-radius: 999px;
+        font-size: 12px;
+        background: rgba(15, 143, 97, 0.12);
+        color: var(--green-strong);
+      }
+
+      .pos {
+        color: var(--green-strong);
+      }
+
+      .neg {
+        color: var(--red);
+      }
+
+      .hint {
+        color: var(--sub);
+        font-size: 13px;
+      }
+
+      @media (max-width: 980px) {
+        .entry-wrap,
+        .summary-grid {
+          grid-template-columns: 1fr;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <main class="app">
+      <section class="hero">
+        <h1>个人理财看板</h1>
+        <p>录入基金与股票，自动汇总大盘指标和持仓热力图（数据保存在本地浏览器）</p>
+      </section>
+
+      <section class="card">
+        <h2 class="section-title">一、录入理财</h2>
+        <div class="entry-wrap">
+          <form id="fund-form" class="card" style="padding:12px;box-shadow:none;">
+            <h3 style="margin-bottom:10px;">录入基金</h3>
+            <div class="form-grid">
+              <div class="field">
+                <label for="fund-code">基金代码</label>
+                <input id="fund-code" name="code" placeholder="例如：110022" required />
+              </div>
+              <div class="field">
+                <label for="fund-amount">金额 (¥)</label>
+                <input id="fund-amount" name="amount" type="number" min="0.01" step="0.01" required />
+              </div>
+              <button type="submit" class="wide">添加基金</button>
+            </div>
+          </form>
+
+          <form id="stock-form" class="card" style="padding:12px;box-shadow:none;">
+            <h3 style="margin-bottom:10px;">录入股票</h3>
+            <div class="form-grid">
+              <div class="field">
+                <label for="stock-name">股票名称</label>
+                <input id="stock-name" name="name" placeholder="例如：贵州茅台" required />
+              </div>
+              <div class="field">
+                <label for="stock-shares">份额</label>
+                <input id="stock-shares" name="shares" type="number" min="1" step="1" required />
+              </div>
+              <button type="submit" class="wide">添加股票</button>
+            </div>
+          </form>
+        </div>
+      </section>
+
+      <section class="card">
+        <h2 class="section-title">二、大盘</h2>
+        <div class="summary-grid" id="summary-grid"></div>
+      </section>
+
+      <section class="card">
+        <div class="heat-head">
+          <h2 class="section-title" style="margin:0;">三、持仓热力图</h2>
+          <div style="display:flex;gap:8px;align-items:center;">
+            <label for="heat-mode" style="margin:0;">维度</label>
+            <select id="heat-mode" style="min-width:130px;">
+              <option value="sector">板块</option>
+              <option value="stock">股票</option>
+              <option value="category">分类</option>
+            </select>
+          </div>
+        </div>
+        <div id="heat-grid" class="heat-grid"></div>
+      </section>
+
+      <section class="card">
+        <div class="table-head">
+          <h2 class="section-title" style="margin:0;">持仓明细</h2>
+          <button id="clear-all" class="ghost" type="button">清空全部</button>
+        </div>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>类型</th>
+                <th>名称/代码</th>
+                <th>板块</th>
+                <th>分类</th>
+                <th>成本</th>
+                <th>市值</th>
+                <th>持仓盈亏</th>
+                <th>今日盈亏</th>
+                <th>操作</th>
+              </tr>
+            </thead>
+            <tbody id="rows"></tbody>
+          </table>
+        </div>
+      </section>
+    </main>
+
+    <script>
+      const STORE_KEY = "onewealth-portfolio-v3";
+
+      const fundForm = document.getElementById("fund-form");
+      const stockForm = document.getElementById("stock-form");
+      const rowsEl = document.getElementById("rows");
+      const summaryGridEl = document.getElementById("summary-grid");
+      const heatGridEl = document.getElementById("heat-grid");
+      const heatModeEl = document.getElementById("heat-mode");
+      const clearAllBtn = document.getElementById("clear-all");
+
+      let holdings = load();
+      render();
+
+      fundForm.addEventListener("submit", (e) => {
+        e.preventDefault();
+        const d = new FormData(fundForm);
+        const code = String(d.get("code") || "").trim();
+        const amount = Number(d.get("amount"));
+        if (!code || Number.isNaN(amount) || amount <= 0) return;
+
+        const item = {
+          id: crypto.randomUUID(),
+          type: "基金",
+          name: code,
+          code,
+          sector: "基金",
+          category: "基金",
+          cost: amount,
+          market: amount,
+          todayPnl: 0,
+        };
+
+        holdings.push(item);
+        save();
+        fundForm.reset();
+        render();
+      });
+
+      stockForm.addEventListener("submit", (e) => {
+        e.preventDefault();
+        const d = new FormData(stockForm);
+        const name = String(d.get("name") || "").trim();
+        const shares = Number(d.get("shares"));
+        if (!name || Number.isNaN(shares) || shares <= 0) return;
+
+        const item = {
+          id: crypto.randomUUID(),
+          type: "股票",
+          name,
+          code: "",
+          sector: "未分类板块",
+          category: "股票",
+          shares,
+          cost: 0,
+          market: 0,
+          todayPnl: 0,
+        };
+
+        holdings.push(item);
+        save();
+        stockForm.reset();
+        render();
+      });
+
+      heatModeEl.addEventListener("change", renderHeatmap);
+
+      clearAllBtn.addEventListener("click", () => {
+        if (!confirm("确认清空全部持仓吗？")) return;
+        holdings = [];
+        save();
+        render();
+      });
+
+      rowsEl.addEventListener("click", (e) => {
+        const t = e.target;
+        if (!(t instanceof HTMLButtonElement)) return;
+        if (t.dataset.action !== "delete") return;
+        holdings = holdings.filter((item) => item.id !== t.dataset.id);
+        save();
+        render();
+      });
+
+      function render() {
+        renderSummary();
+        renderHeatmap();
+        renderTable();
+      }
+
+      function renderSummary() {
+        const totalCost = holdings.reduce((s, i) => s + num(i.cost), 0);
+        const totalMarket = holdings.reduce((s, i) => s + num(i.market), 0);
+        const totalPnl = totalMarket - totalCost;
+        const totalTodayPnl = holdings.reduce((s, i) => s + num(i.todayPnl), 0);
+        const annualized = totalCost > 0 ? (totalPnl / totalCost) * 100 : 0;
+
+        const blocks = [
+          { k: "总市值", v: cny(totalMarket), cls: "" },
+          { k: "年化率(估算)", v: pct(annualized), cls: annualized >= 0 ? "pos" : "neg" },
+          { k: "持仓盈亏", v: cny(totalPnl), cls: totalPnl >= 0 ? "pos" : "neg" },
+          { k: "今日盈亏", v: cny(totalTodayPnl), cls: totalTodayPnl >= 0 ? "pos" : "neg" },
+        ];
+
+        summaryGridEl.innerHTML = blocks
+          .map(
+            (b) =>
+              `<article class="summary"><div class="k">${b.k}</div><div class="v ${b.cls}">${b.v}</div></article>`
+          )
+          .join("");
+      }
+
+      function renderHeatmap() {
+        if (!holdings.length) {
+          heatGridEl.innerHTML = `<div class="hint">暂无持仓，先录入基金或股票。</div>`;
+          return;
+        }
+
+        const mode = heatModeEl.value;
+        let points = [];
+
+        if (mode === "stock") {
+          points = holdings
+            .filter((i) => i.type === "股票")
+            .map((i) => ({ label: i.name, market: num(i.market), todayPnl: num(i.todayPnl), sub: i.category }));
+        } else {
+          const map = {};
+          for (const i of holdings) {
+            const key = mode === "sector" ? i.sector : i.category;
+            if (!map[key]) map[key] = { label: key, market: 0, todayPnl: 0, count: 0 };
+            map[key].market += num(i.market);
+            map[key].todayPnl += num(i.todayPnl);
+            map[key].count += 1;
+          }
+          points = Object.values(map).map((x) => ({
+            label: x.label,
+            market: x.market,
+            todayPnl: x.todayPnl,
+            sub: `${x.count}个持仓`,
+          }));
+        }
+
+        if (!points.length) {
+          heatGridEl.innerHTML = `<div class="hint">当前维度下暂无数据。</div>`;
+          return;
+        }
+
+        points.sort((a, b) => b.market - a.market);
+        const maxMarket = Math.max(...points.map((p) => p.market), 1);
+
+        heatGridEl.innerHTML = points
+          .map((p) => {
+            const size = 1 + (p.market / maxMarket) * 1.8;
+            const bg = heatColor(p.todayPnl, p.market);
+            return `<article class="tile" style="background:${bg};grid-column: span ${Math.min(3, Math.max(1, Math.round(size)))};">
+              <div class="name">${escapeHtml(p.label)}</div>
+              <div class="meta">${escapeHtml(p.sub || "-")}</div>
+              <div class="meta">市值: ${cny(p.market)}</div>
+              <div class="meta ${p.todayPnl >= 0 ? "pos" : "neg"}">今日: ${cny(p.todayPnl)}</div>
+            </article>`;
+          })
+          .join("");
+      }
+
+      function renderTable() {
+        if (!holdings.length) {
+          rowsEl.innerHTML = `<tr><td colspan="9" class="hint">暂无数据。</td></tr>`;
+          return;
+        }
+
+        const html = holdings
+          .slice()
+          .sort((a, b) => num(b.market) - num(a.market))
+          .map((i) => {
+            const pnl = num(i.market) - num(i.cost);
+            return `<tr>
+              <td><span class="tag">${i.type}</span></td>
+              <td>${escapeHtml(i.type === "基金" ? i.code : i.name)}</td>
+              <td>${escapeHtml(i.sector || "-")}</td>
+              <td>${escapeHtml(i.category || "-")}</td>
+              <td>${cny(i.cost)}</td>
+              <td>${cny(i.market)}</td>
+              <td class="${pnl >= 0 ? "pos" : "neg"}">${cny(pnl)}</td>
+              <td class="${num(i.todayPnl) >= 0 ? "pos" : "neg"}">${cny(i.todayPnl)}</td>
+              <td><button class="ghost" data-action="delete" data-id="${i.id}" type="button">删除</button></td>
+            </tr>`;
+          })
+          .join("");
+
+        rowsEl.innerHTML = html;
+      }
+
+      function heatColor(todayPnl, market) {
+        const base = Math.max(1, Math.abs(num(market)));
+        const ratio = Math.min(1, Math.abs(num(todayPnl)) / base * 8);
+        const alpha = (0.12 + ratio * 0.56).toFixed(2);
+        if (num(todayPnl) > 0) return `rgba(15, 143, 97, ${alpha})`;
+        if (num(todayPnl) < 0) return `rgba(183, 70, 70, ${alpha})`;
+        return "rgba(124, 140, 150, 0.18)";
+      }
+
+      function save() {
+        localStorage.setItem(STORE_KEY, JSON.stringify(holdings));
+      }
+
+      function load() {
+        try {
+          const raw = localStorage.getItem(STORE_KEY);
+          const list = raw ? JSON.parse(raw) : [];
+          return Array.isArray(list) ? list : [];
+        } catch {
+          return [];
+        }
+      }
+
+      function cny(n) {
+        return new Intl.NumberFormat("zh-CN", {
+          style: "currency",
+          currency: "CNY",
+          maximumFractionDigits: 2,
+        }).format(num(n));
+      }
+
+      function pct(n) {
+        return `${num(n).toFixed(2)}%`;
+      }
+
+      function num(v) {
+        const n = Number(v);
+        return Number.isFinite(n) ? n : 0;
+      }
+
+      function escapeHtml(str) {
+        return String(str)
+          .replaceAll("&", "&amp;")
+          .replaceAll("<", "&lt;")
+          .replaceAll(">", "&gt;")
+          .replaceAll('"', "&quot;")
+          .replaceAll("'", "&#39;");
+      }
+    </script>
+  </body>
+</html>
