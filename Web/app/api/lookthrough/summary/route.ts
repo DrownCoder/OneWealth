@@ -3,9 +3,22 @@ import { listFundHoldings, listLatestLookthroughRows } from "@/lib/db";
 
 export const runtime = "nodejs";
 
-export async function GET() {
+export async function GET(req: Request) {
   try {
-    const funds = listFundHoldings();
+    const { searchParams } = new URL(req.url);
+    const hasFundCodesParam = searchParams.has("fundCodes");
+    const fundCodesParam = String(searchParams.get("fundCodes") ?? "").trim();
+    const filterCodes = new Set(
+      fundCodesParam
+        .split(",")
+        .map((s) => s.trim())
+        .filter(Boolean)
+    );
+
+    const allFunds = listFundHoldings();
+    const funds = hasFundCodesParam
+      ? allFunds.filter((f) => filterCodes.has(f.code))
+      : allFunds;
     const latestRows = listLatestLookthroughRows();
 
     const fundAmountMap = new Map<string, number>();
@@ -30,6 +43,7 @@ export async function GET() {
     let latestAsOfDate = "";
 
     for (const row of latestRows) {
+      if (hasFundCodesParam && !filterCodes.has(row.fundCode)) continue;
       const fundAmount = fundAmountMap.get(row.fundCode) ?? 0;
       const weightedAmount = fundAmount * (Number(row.ccRate || 0) / 100);
       const key = row.zcCode;

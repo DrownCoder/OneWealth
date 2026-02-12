@@ -21,8 +21,12 @@ export type LookthroughSummary = {
   positions: LookthroughPosition[];
 };
 
-export async function getLookthroughSummary(): Promise<LookthroughSummary> {
-  const res = await fetch("/api/lookthrough/summary", { cache: "no-store" });
+export async function getLookthroughSummary(fundCodes?: string[]): Promise<LookthroughSummary> {
+  const qs =
+    fundCodes === undefined
+      ? ""
+      : `?fundCodes=${encodeURIComponent(fundCodes.join(","))}`;
+  const res = await fetch(`/api/lookthrough/summary${qs}`, { cache: "no-store" });
   if (!res.ok) {
     throw new Error("获取穿透汇总失败");
   }

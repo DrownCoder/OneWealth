@@ -21,6 +21,20 @@ export type FundHoldingRow = {
   amount: number;
 };
 
+export type FundProfileRow = {
+  fundCode: string;
+  name: string | null;
+  fundType: string | null;
+  rate: number | null;
+  net: number | null;
+  totalNet: number | null;
+  asOfDate: string | null;
+  upstreamUpdateTime: string | null;
+  manager: string | null;
+  orgName: string | null;
+  fetchedAt: string;
+};
+
 export type LookthroughPositionInput = {
   zcType: string;
   zcCode: string;
@@ -99,6 +113,22 @@ db.exec(`
     rate REAL,
     change_rate REAL,
     FOREIGN KEY (snapshot_id) REFERENCES fund_lookthrough_snapshots(id) ON DELETE CASCADE
+  );
+`);
+
+db.exec(`
+  CREATE TABLE IF NOT EXISTS fund_profiles (
+    fund_code TEXT PRIMARY KEY,
+    name TEXT,
+    fund_type TEXT,
+    rate REAL,
+    net REAL,
+    total_net REAL,
+    as_of_date TEXT,
+    upstream_update_time TEXT,
+    manager TEXT,
+    org_name TEXT,
+    fetched_at TEXT NOT NULL DEFAULT (datetime('now'))
   );
 `);
 
@@ -209,6 +239,49 @@ const listLatestLookthroughRowsStmt = db.prepare(`
     GROUP BY fund_code
   ) latest ON latest.fund_code = s.fund_code
           AND latest.max_as_of_date = s.as_of_date
+`);
+
+const upsertFundProfileStmt = db.prepare(`
+  INSERT INTO fund_profiles (
+    fund_code,
+    name,
+    fund_type,
+    rate,
+    net,
+    total_net,
+    as_of_date,
+    upstream_update_time,
+    manager,
+    org_name,
+    fetched_at
+  ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'))
+  ON CONFLICT(fund_code) DO UPDATE SET
+    name = excluded.name,
+    fund_type = excluded.fund_type,
+    rate = excluded.rate,
+    net = excluded.net,
+    total_net = excluded.total_net,
+    as_of_date = excluded.as_of_date,
+    upstream_update_time = excluded.upstream_update_time,
+    manager = excluded.manager,
+    org_name = excluded.org_name,
+    fetched_at = datetime('now')
+`);
+
+const listFundProfilesStmt = db.prepare(`
+  SELECT
+    fund_code,
+    name,
+    fund_type,
+    rate,
+    net,
+    total_net,
+    as_of_date,
+    upstream_update_time,
+    manager,
+    org_name,
+    fetched_at
+  FROM fund_profiles
 `);
 
 export function listHoldings(): HoldingRow[] {
@@ -348,5 +421,48 @@ export function listLatestLookthroughRows(): LookthroughLatestRow[] {
     price: row.price === null ? null : Number(row.price),
     rate: row.rate === null ? null : Number(row.rate),
     changeRate: row.change_rate === null ? null : Number(row.change_rate),
+  }));
+}
+
+export function upsertFundProfile(input: {
+  fundCode: string;
+  name: string | null;
+  fundType: string | null;
+  rate: number | null;
+  net: number | null;
+  totalNet: number | null;
+  asOfDate: string | null;
+  upstreamUpdateTime: string | null;
+  manager: string | null;
+  orgName: string | null;
+}): void {
+  upsertFundProfileStmt.run(
+    input.fundCode,
+    input.name,
+    input.fundType,
+    input.rate,
+    input.net,
+    input.totalNet,
+    input.asOfDate,
+    input.upstreamUpdateTime,
+    input.manager,
+    input.orgName
+  );
+}
+
+export function listFundProfiles(): FundProfileRow[] {
+  const rows = listFundProfilesStmt.all() as Array<Record<string, unknown>>;
+  return rows.map((row) => ({
+    fundCode: String(row.fund_code ?? ""),
+    name: row.name === null ? null : String(row.name),
+    fundType: row.fund_type === null ? null : String(row.fund_type),
+    rate: row.rate === null ? null : Number(row.rate),
+    net: row.net === null ? null : Number(row.net),
+    totalNet: row.total_net === null ? null : Number(row.total_net),
+    asOfDate: row.as_of_date === null ? null : String(row.as_of_date),
+    upstreamUpdateTime: row.upstream_update_time === null ? null : String(row.upstream_update_time),
+    manager: row.manager === null ? null : String(row.manager),
+    orgName: row.org_name === null ? null : String(row.org_name),
+    fetchedAt: String(row.fetched_at ?? ""),
   }));
 }

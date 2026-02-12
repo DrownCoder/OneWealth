@@ -210,8 +210,78 @@ th {
   background: #e8f2ed;
 }
 
+.filter-panel {
+  background: linear-gradient(180deg, #fcfefd 0%, #f6fbf8 100%);
+}
+
+.filter-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 10px;
+  gap: 8px;
+}
+
+.filter-count {
+  display: inline-block;
+  border-radius: 999px;
+  padding: 3px 10px;
+  background: #dff4e9;
+  color: #0f704d;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.fund-chip-wrap {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.fund-chip {
+  width: auto;
+  height: auto;
+  border: 1px solid #c7dbd2;
+  background: #fff;
+  color: #204336;
+  border-radius: 12px;
+  padding: 8px 12px;
+  display: inline-flex;
+  align-items: baseline;
+  gap: 8px;
+  font-size: 13px;
+  font-weight: 600;
+  transition: all 120ms ease;
+}
+
+.fund-chip:hover {
+  border-color: #8bbba5;
+  background: #f2faf6;
+}
+
+.fund-chip.is-selected {
+  border-color: #0f8f61;
+  background: #dff4e9;
+  color: #0a5e40;
+  box-shadow: inset 0 0 0 1px rgba(15, 143, 97, 0.18);
+}
+
+.fund-chip-code {
+  font-weight: 800;
+  letter-spacing: 0.2px;
+}
+
+.fund-chip-name {
+  opacity: 0.9;
+}
+
 @media (max-width: 860px) {
   .grid {
     grid-template-columns: 1fr;
+  }
+
+  .filter-header {
+    flex-direction: column;
+    align-items: flex-start;
   }
 }
