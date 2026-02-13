@@ -9,6 +9,7 @@ import {
   refreshFundProfiles,
   type FundProfileSummary,
 } from "@/lib/services/fund-profiles";
+import { getIndustrySummary, refreshIndustry, type IndustrySummary } from "@/lib/services/industry";
 
 function fmtDate(value: string): string {
   const d = new Date(value);
@@ -25,10 +26,13 @@ export default function DashboardPage() {
   const [rows, setRows] = useState<Holding[]>([]);
   const [lookthrough, setLookthrough] = useState<LookthroughSummary | null>(null);
   const [fundProfile, setFundProfile] = useState<FundProfileSummary | null>(null);
+  const [industry, setIndustry] = useState<IndustrySummary | null>(null);
   const [loadingLookthrough, setLoadingLookthrough] = useState(false);
   const [loadingFundProfile, setLoadingFundProfile] = useState(false);
+  const [loadingIndustry, setLoadingIndustry] = useState(false);
   const [refreshHint, setRefreshHint] = useState("");
   const [profileHint, setProfileHint] = useState("");
+  const [industryHint, setIndustryHint] = useState("");
   const autoRefreshed = useRef(false);
   const filterInit = useRef(false);
   const [selectedFundCodes, setSelectedFundCodes] = useState<string[]>([]);
@@ -75,6 +79,15 @@ export default function DashboardPage() {
       });
     } catch {
       setFundProfile(null);
+    }
+  }
+
+  async function loadIndustry(codes?: string[]) {
+    try {
+      const summary = await getIndustrySummary(codes);
+      setIndustry(summary);
+    } catch {
+      setIndustry(null);
     }
   }
 
@@ -144,16 +157,17 @@ export default function DashboardPage() {
     if (!filterInit.current && fundOptions.length > 0) return;
 
     const codes = getEffectiveFilterCodes();
-    Promise.all([loadLookthrough(codes), loadFundProfile(codes)]).catch(() => {
+    Promise.all([loadLookthrough(codes), loadFundProfile(codes), loadIndustry(codes)]).catch(() => {
       setLookthrough(null);
       setFundProfile(null);
+      setIndustry(null);
     });
   }, [selectedFundCodes, fundOptions.length, didUserTouchFilter]);
 
   useEffect(() => {
     if (autoRefreshed.current) return;
     autoRefreshed.current = true;
-    Promise.all([doRefreshFundProfile(), doRefreshLookthrough()]).catch(() => {});
+    Promise.all([doRefreshFundProfile(), doRefreshLookthrough(), doRefreshIndustry()]).catch(() => {});
   }, []);
 
   const metrics = useMemo(() => {
@@ -206,7 +220,29 @@ export default function DashboardPage() {
     }
   }
 
+  async function doRefreshIndustry() {
+    setLoadingIndustry(true);
+    setIndustryHint("");
+    try {
+      const result = await refreshIndustry();
+      const codes = getEffectiveFilterCodes();
+      await loadIndustry(codes);
+      if ((result.failed?.length ?? 0) > 0) {
+        const first = result.failed?.[0];
+        setIndustryHint(
+          `刷新完成：${result.refreshedFunds}/${result.funds} 成功，失败 ${result.failed?.length}。` +
+            (first ? ` 示例：${first.fundCode} - ${first.message}` : "")
+        );
+      } else {
+        setIndustryHint(`刷新完成：${result.refreshedFunds}/${result.funds} 成功，写入 ${result.positions} 条行业持仓。`);
+      }
+    } finally {
+      setLoadingIndustry(false);
+    }
+  }
+
   const topPenetrated = lookthrough?.positions?.slice(0, 15) ?? [];
+  const topIndustry = industry?.industries?.slice(0, 24) ?? [];
   const selectedFundCount = selectedFundCodes.length;
   const selectedFundTypeCount = selectedFundTypes.length;
 
@@ -513,6 +549,100 @@ export default function DashboardPage() {
                     <td>{x.zcType}</td>
                     <td>¥{x.weightedAmount.toFixed(2)}</td>
                     <td>{x.inStockAmountPct.toFixed(4)}</td>
+                    <td>{x.fundCount}</td>
+                  </tr>
+                ))
+              )}
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <section className="card">
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>
+          <h2>行业热力图</h2>
+          <button type="button" className="quick-btn" disabled={loadingIndustry} onClick={doRefreshIndustry}>
+            {loadingIndustry ? "刷新中..." : "刷新行业数据"}
+          </button>
+        </div>
+
+        <div className="grid" style={{ marginBottom: 12 }}>
+          <article className="card">
+            <h3>覆盖基金</h3>
+            <p style={{ marginTop: 8, fontSize: 24, fontWeight: 700 }}>{industry?.totals?.fundCount ?? 0}</p>
+          </article>
+          <article className="card">
+            <h3>行业数量</h3>
+            <p style={{ marginTop: 8, fontSize: 24, fontWeight: 700 }}>{industry?.totals?.industryCount ?? 0}</p>
+          </article>
+          <article className="card">
+            <h3>基金总金额</h3>
+            <p style={{ marginTop: 8, fontSize: 24, fontWeight: 700 }}>
+              ¥{Number(industry?.totals?.totalFundAmount ?? 0).toFixed(2)}
+            </p>
+          </article>
+          <article className="card">
+            <h3>行业穿透总金额</h3>
+            <p style={{ marginTop: 8, fontSize: 24, fontWeight: 700 }}>
+              ¥{Number(industry?.totals?.totalPenetratedIndustryAmount ?? 0).toFixed(2)}
+            </p>
+          </article>
+          <article className="card">
+            <h3>行业更新日</h3>
+            <p style={{ marginTop: 8, fontSize: 20, fontWeight: 700 }}>{industry?.totals?.latestAsOfDate || "-"}</p>
+          </article>
+        </div>
+
+        {industryHint ? <p className="hint" style={{ marginBottom: 10 }}>{industryHint}</p> : null}
+
+        <div className="industry-heat-grid" style={{ marginBottom: 12 }}>
+          {topIndustry.length === 0 ? (
+            <div className="industry-heat-card">
+              <p className="hint">暂无行业数据，点击“刷新行业数据”后再查看。</p>
+            </div>
+          ) : (
+            topIndustry.map((item) => (
+              <article
+                key={`${item.industryCode}-${item.industryName}`}
+                className="industry-heat-card"
+                style={{
+                  background: `linear-gradient(150deg, rgba(15,143,97,${Math.min(0.62, Math.max(0.14, item.inIndustryAmountPct / 100))}) 0%, #f4fbf7 100%)`,
+                }}
+              >
+                <p className="industry-name">{item.industryName}</p>
+                <p className="industry-meta">占行业穿透 {item.inIndustryAmountPct.toFixed(2)}%</p>
+                <p className="industry-amount">¥{item.weightedAmount.toFixed(2)}</p>
+                <p className="industry-meta">涉及基金 {item.fundCount}</p>
+              </article>
+            ))
+          )}
+        </div>
+
+        <div className="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>行业代码</th>
+                <th>行业名称</th>
+                <th>估算穿透金额</th>
+                <th>占行业穿透总金额比(%)</th>
+                <th>占基金总金额比(%)</th>
+                <th>涉及基金数</th>
+              </tr>
+            </thead>
+            <tbody>
+              {topIndustry.length === 0 ? (
+                <tr>
+                  <td colSpan={6} className="hint">暂无行业数据。</td>
+                </tr>
+              ) : (
+                topIndustry.map((x) => (
+                  <tr key={`${x.industryCode}-${x.industryName}`}>
+                    <td>{x.industryCode}</td>
+                    <td>{x.industryName}</td>
+                    <td>¥{x.weightedAmount.toFixed(2)}</td>
+                    <td>{x.inIndustryAmountPct.toFixed(4)}</td>
+                    <td>{x.weightedRatePct.toFixed(4)}</td>
                     <td>{x.fundCount}</td>
                   </tr>
                 ))

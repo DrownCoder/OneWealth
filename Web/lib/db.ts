@@ -62,6 +62,23 @@ export type LookthroughLatestRow = {
   changeRate: number | null;
 };
 
+export type IndustryPositionInput = {
+  industryCode: string;
+  industryName: string;
+  marketValue: number | null;
+  weightPct: number;
+};
+
+export type IndustryLatestRow = {
+  fundCode: string;
+  asOfDate: string;
+  fetchedAt: string;
+  industryCode: string;
+  industryName: string;
+  marketValue: number | null;
+  weightPct: number;
+};
+
 const dataDir = path.join(process.cwd(), "data");
 const dbFile = path.join(dataDir, "finance.sqlite");
 
@@ -129,6 +146,33 @@ db.exec(`
     manager TEXT,
     org_name TEXT,
     fetched_at TEXT NOT NULL DEFAULT (datetime('now'))
+  );
+`);
+
+db.exec(`
+  CREATE TABLE IF NOT EXISTS fund_industry_snapshots (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    fund_code TEXT NOT NULL,
+    as_of_date TEXT NOT NULL,
+    fetched_at TEXT NOT NULL DEFAULT (datetime('now')),
+    error_msg TEXT
+  );
+`);
+
+db.exec(`
+  CREATE UNIQUE INDEX IF NOT EXISTS idx_fund_industry_snapshot_unique
+  ON fund_industry_snapshots (fund_code, as_of_date);
+`);
+
+db.exec(`
+  CREATE TABLE IF NOT EXISTS fund_industry_positions (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    snapshot_id INTEGER NOT NULL,
+    industry_code TEXT NOT NULL,
+    industry_name TEXT NOT NULL,
+    market_value REAL,
+    weight_pct REAL NOT NULL,
+    FOREIGN KEY (snapshot_id) REFERENCES fund_industry_snapshots(id) ON DELETE CASCADE
   );
 `);
 
@@ -282,6 +326,58 @@ const listFundProfilesStmt = db.prepare(`
     org_name,
     fetched_at
   FROM fund_profiles
+`);
+
+const findIndustrySnapshotStmt = db.prepare(`
+  SELECT id
+  FROM fund_industry_snapshots
+  WHERE fund_code = ? AND as_of_date = ?
+`);
+
+const insertIndustrySnapshotStmt = db.prepare(`
+  INSERT INTO fund_industry_snapshots (fund_code, as_of_date, fetched_at, error_msg)
+  VALUES (?, ?, datetime('now'), ?)
+`);
+
+const updateIndustrySnapshotStmt = db.prepare(`
+  UPDATE fund_industry_snapshots
+  SET fetched_at = datetime('now'),
+      error_msg = ?
+  WHERE id = ?
+`);
+
+const deleteIndustryPositionsBySnapshotStmt = db.prepare(`
+  DELETE FROM fund_industry_positions
+  WHERE snapshot_id = ?
+`);
+
+const insertIndustryPositionStmt = db.prepare(`
+  INSERT INTO fund_industry_positions (
+    snapshot_id,
+    industry_code,
+    industry_name,
+    market_value,
+    weight_pct
+  ) VALUES (?, ?, ?, ?, ?)
+`);
+
+const listLatestIndustryRowsStmt = db.prepare(`
+  SELECT
+    s.fund_code AS fund_code,
+    s.as_of_date AS as_of_date,
+    s.fetched_at AS fetched_at,
+    p.industry_code AS industry_code,
+    p.industry_name AS industry_name,
+    p.market_value AS market_value,
+    p.weight_pct AS weight_pct
+  FROM fund_industry_positions p
+  JOIN fund_industry_snapshots s ON s.id = p.snapshot_id
+  JOIN (
+    SELECT fund_code, MAX(as_of_date) AS max_as_of_date
+    FROM fund_industry_snapshots
+    GROUP BY fund_code
+  ) latest ON latest.fund_code = s.fund_code
+          AND latest.max_as_of_date = s.as_of_date
 `);
 
 export function listHoldings(): HoldingRow[] {
@@ -464,5 +560,60 @@ export function listFundProfiles(): FundProfileRow[] {
     manager: row.manager === null ? null : String(row.manager),
     orgName: row.org_name === null ? null : String(row.org_name),
     fetchedAt: String(row.fetched_at ?? ""),
+  }));
+}
+
+export function replaceFundIndustrySnapshot(input: {
+  fundCode: string;
+  asOfDate: string;
+  errorMsg: string | null;
+  positions: IndustryPositionInput[];
+}): { snapshotId: number; positions: number } {
+  db.exec("BEGIN");
+  try {
+    const existed = findIndustrySnapshotStmt.get(input.fundCode, input.asOfDate) as Record<string, unknown> | undefined;
+    let snapshotId = 0;
+
+    if (existed?.id) {
+      snapshotId = Number(existed.id);
+      updateIndustrySnapshotStmt.run(input.errorMsg, snapshotId);
+    } else {
+      const inserted = insertIndustrySnapshotStmt.run(
+        input.fundCode,
+        input.asOfDate,
+        input.errorMsg
+      ) as { lastInsertRowid?: number | bigint };
+      snapshotId = Number(inserted.lastInsertRowid ?? 0);
+    }
+
+    deleteIndustryPositionsBySnapshotStmt.run(snapshotId);
+    for (const p of input.positions) {
+      insertIndustryPositionStmt.run(
+        snapshotId,
+        p.industryCode,
+        p.industryName,
+        p.marketValue,
+        p.weightPct
+      );
+    }
+
+    db.exec("COMMIT");
+    return { snapshotId, positions: input.positions.length };
+  } catch (error) {
+    db.exec("ROLLBACK");
+    throw error;
+  }
+}
+
+export function listLatestIndustryRows(): IndustryLatestRow[] {
+  const rows = listLatestIndustryRowsStmt.all() as Array<Record<string, unknown>>;
+  return rows.map((row) => ({
+    fundCode: String(row.fund_code ?? ""),
+    asOfDate: String(row.as_of_date ?? ""),
+    fetchedAt: String(row.fetched_at ?? ""),
+    industryCode: String(row.industry_code ?? ""),
+    industryName: String(row.industry_name ?? ""),
+    marketValue: row.market_value === null ? null : Number(row.market_value),
+    weightPct: Number(row.weight_pct ?? 0),
   }));
 }
